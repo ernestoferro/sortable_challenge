@@ -1,18 +1,36 @@
 import csv
-import re
+import numpy as np
 from collections import defaultdict
 from models import read_data, Product, Listing
-
-
-def find_word(word, text):
-    return bool(re.search(r'\b' + re.escape(word) + r'\b', text))
+from text_processing import find_word
 
 
 def score(product, listing):
-    manufacturer_score = 2 * find_word(product.normalized_manufacturer, listing.normalized_title)
-    family_score = 10 * find_word(product.normalized_family, listing.normalized_title)
-    model_score = 50 * find_word(product.normalized_model, listing.normalized_title)
+    manufacturer_score = 10 * sum(
+        find_word(x, listing.normalized_title)
+        for x in product.normalized_manufacturer
+    ) + 50 * sum(
+        find_word(x, listing.normalized_manufacturer)
+        for x in product.normalized_manufacturer
+    )
+    family_score = 10 * sum(
+        find_word(x, listing.normalized_title)
+        for x in product.normalized_family
+    )
+    model_score = 50 * sum(
+        find_word(x, listing.normalized_title)
+        for x in (product.normalized_model | product.normalized_name)
+    )
     return manufacturer_score + family_score + model_score
+
+
+def filter_accessories(data, price_ratio, selector=lambda x: x):
+    data = np.array(data)
+    values = np.vectorize(selector)(data)
+    median = np.median(values)
+    reject = values <= price_ratio * median
+    keep = ~reject
+    return data[keep].tolist(), data[reject].tolist()
 
 
 def main():
@@ -20,15 +38,15 @@ def main():
     listing_json_fields = 'title manufacturer currency price'.split()
     product_buckets = defaultdict(set)
     products = list(read_data('data/products.txt', Product, product_json_fields))
+    listings = read_data('data/listings.txt', Listing, listing_json_fields)
+    to_review_listings = []
+    to_review_listings_accessories = []
 
     for product in products:
         for token in product.tokens:
             product_buckets[token].add(product)
 
-    to_review_listings = []
-    to_review_listings_accessories = []
-
-    for listing in read_data('data/listings.txt', Listing, listing_json_fields):
+    for listing in listings:
         candidates = set()
         for token in listing.tokens:
             candidates.update(product_buckets[token])
@@ -36,22 +54,36 @@ def main():
         potential_products = []
         for candidate in candidates:
             match_score = score(candidate, listing)
-            if match_score > 60:
+            if match_score >= 100:
                 potential_products.append(candidate)
 
         if len(potential_products) == 1:
             product = potential_products[0]
-            product.listings.add(listing)
+            product.listings.append(listing)
         elif len(potential_products) == 0:
             to_review_listings.append(listing)
         else:
             to_review_listings_accessories.append((listing, potential_products))  # accessory?
 
+    for product in products:
+        if product.listings:
+            product.listings, rejected = filter_accessories(
+                product.listings, 0.3, lambda x: x.price_in_cad
+            )
+        #if rejected:
+            #from pprint import pprint
+            #print(product)
+            #input('')
+            #pprint(rejected)
+            #input('')
+            #pprint(product.listings)
+            #input('enter')
+
     print('unmatched listings', len(to_review_listings))
     print('unmatched listings (maybe accessories)', len(to_review_listings_accessories))
 
     with open('links.csv', 'w') as csvfile:
-        fieldnames = ['product', 'listing']
+        fieldnames = ['product', 'listing', 'price']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
@@ -63,7 +95,7 @@ def main():
 
             writer.writerow({'product': product_cell})
             for listing in product.listings:
-                writer.writerow({'listing': listing.title})
+                writer.writerow({'listing': listing.title, 'price': listing.price_in_cad})
 
     with open('unmatched_listings.csv', 'w') as csvfile:
         fieldnames = ['listing', 'accessories']
