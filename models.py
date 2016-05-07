@@ -1,5 +1,5 @@
 import json
-from text_processing import normalize_text, tokenize, tokenize_field
+from text_processing import normalize_text, tokenize_field
 
 
 class Product:
@@ -10,13 +10,9 @@ class Product:
         self.family = family
         self.announced_date = announced_date
         self.listings = []
-        self.normalized_manufacturer = tokenize_field(manufacturer)
-        self.normalized_family = tokenize_field(family)
+        self.normalized_manufacturer = normalize_text(manufacturer)
         self.normalized_model = tokenize_field(model)
         self.normalized_name = tokenize_field(name)
-        self.tokens = tokenize(
-            ' '.join([name, manufacturer, model, family])
-        )
 
     def __repr__(self):
         return str(self)
@@ -39,7 +35,6 @@ class Listing:
         self.currency = currency
         self.price = price
         self.price_in_cad = float(price) * Listing.to_cad[currency]
-        self.tokens = tokenize(title + ' ' + manufacturer)
         self.normalized_title = normalize_text(title)
         self.normalized_manufacturer = normalize_text(manufacturer)
 

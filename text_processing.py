@@ -1,30 +1,38 @@
 import re
 
 
-def normalize_text(text):
+def standardize_text(text):
     text = text.lower().replace('_', ' ')
     return re.sub(r'[^ a-zA-Z0-9/-]+', '', text)
 
 
-def tokenize(text):
-    return set(normalize_text(text).split())
+def normalize_text(text):
+    tokens = standardize_text(text).split()
+
+    extra_tokens = []
+    for token in tokens:
+        if '-' in token:
+            extra_tokens.append(token.replace('-', ''))
+    return ' '.join(tokens + extra_tokens)
 
 
 def tokenize_field(text):
-    normalized_text = normalize_text(text)
-    tokens = {normalized_text}
-    if '-' in normalized_text:
-        tokens.add(normalized_text.replace('-', ' '))
-        tokens.add(normalized_text.replace('-', ''))
-    if ' ' in normalized_text:
-        tokens.add(normalized_text.replace(' ', ''))
+    text = standardize_text(text)
+    tokens = {text}
+
+    if '-' in text:
+        tokens.add(text.replace('-', ' '))
+        tokens.add(text.replace('-', ''))
+    if ' ' in text:
+        tokens.add(text.replace(' ', ''))
     return tokens
 
 
 def find_word(word, text):
+    # this used to be a regex, but this is much faster
     return (
         (' ' + word + ' ') in text or
         text.startswith(word + ' ') or
-        text.endswith(' ' + word)
+        text.endswith(' ' + word) or
+        word == text
     )
-    #return bool(re.search(r'\b' + word + r'\b', text))

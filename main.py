@@ -5,23 +5,16 @@ from models import read_data, Product, Listing
 from text_processing import find_word
 
 
-def score(product, listing):
-    manufacturer_score = 10 * sum(
-        find_word(x, listing.normalized_title)
-        for x in product.normalized_manufacturer
-    ) + 50 * sum(
-        find_word(x, listing.normalized_manufacturer)
-        for x in product.normalized_manufacturer
-    )
-    family_score = 10 * sum(
-        find_word(x, listing.normalized_title)
-        for x in product.normalized_family
-    )
-    model_score = 50 * sum(
+def does_link(product, listing):
+    same_manufacturer = (
+        find_word(product.normalized_manufacturer, listing.normalized_manufacturer) or
+        find_word(listing.normalized_manufacturer, product.normalized_manufacturer)
+    ) and find_word(product.normalized_manufacturer, listing.normalized_title)
+    model_mentioned = any(
         find_word(x, listing.normalized_title)
         for x in (product.normalized_model | product.normalized_name)
     )
-    return manufacturer_score + family_score + model_score
+    return same_manufacturer and model_mentioned
 
 
 def filter_accessories(data, price_ratio, selector=lambda x: x):
@@ -43,18 +36,17 @@ def main():
     to_review_listings_accessories = []
 
     for product in products:
-        for token in product.tokens:
+        for token in product.normalized_manufacturer.split():
             product_buckets[token].add(product)
 
     for listing in listings:
         candidates = set()
-        for token in listing.tokens:
+        for token in listing.normalized_manufacturer.split():
             candidates.update(product_buckets[token])
 
         potential_products = []
         for candidate in candidates:
-            match_score = score(candidate, listing)
-            if match_score >= 100:
+            if does_link(candidate, listing):
                 potential_products.append(candidate)
 
         if len(potential_products) == 1:
@@ -66,18 +58,20 @@ def main():
             to_review_listings_accessories.append((listing, potential_products))  # accessory?
 
     for product in products:
-        if product.listings:
-            product.listings, rejected = filter_accessories(
-                product.listings, 0.3, lambda x: x.price_in_cad
-            )
-        #if rejected:
-            #from pprint import pprint
-            #print(product)
-            #input('')
-            #pprint(rejected)
-            #input('')
-            #pprint(product.listings)
-            #input('enter')
+        if not product.listings:
+            continue
+
+        product.listings, rejected = filter_accessories(
+            product.listings, 0.3, lambda x: x.price_in_cad
+        )
+        if rejected:
+            to_review_listings.extend(rejected)
+            print(product)
+            print('')
+            print('rejected', rejected)
+            print('')
+            print('listings', product.listings)
+            input('enter')
 
     print('unmatched listings', len(to_review_listings))
     print('unmatched listings (maybe accessories)', len(to_review_listings_accessories))
