@@ -38,6 +38,14 @@ class Listing:
         self.normalized_title = normalize_text(title)
         self.normalized_manufacturer = normalize_text(manufacturer)
 
+    def as_dict(self):
+        return {
+            'title': self.title,
+            'manufacturer': self.manufacturer,
+            'currency': self.currency,
+            'price': self.price
+        }
+
     def __repr__(self):
         return str(self)
 
@@ -45,9 +53,17 @@ class Listing:
         return 'Listing("{} {}")'.format(self.title, self.price_in_cad)
 
 
-def read_data(path, cls, fields):
-    with open(path, 'rt', encoding='utf-8') as data_file:
+def load_models(path, cls, fields, encoding='utf-8'):
+    with open(path, 'rt', encoding=encoding) as data_file:
         for line in data_file:
             data = json.loads(line)
             values = [data.get(field, '') for field in fields]
             yield cls(*values)
+
+
+def save_json_by_line(path, iterable, encoding='utf-8'):
+    with open(path, 'wt', encoding=encoding) as data_file:
+        for data in iterable:
+            data_file.write('{}\n'.format(
+                json.dumps(data, ensure_ascii=False)
+            ))

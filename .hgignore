@@ -4,3 +4,4 @@ syntax: glob
 *.pyc
 *.csv
 data/test_*
+results.txt
