@@ -1,4 +1,3 @@
-import numpy as np
 from collections import defaultdict
 from models import Product, Listing, load_models, save_json_by_line
 from text_processing import find_word
@@ -10,7 +9,7 @@ def does_link(product, listing):
     same_manufacturer = (
         find_word(product.normalized_manufacturer, listing.normalized_manufacturer) or
         find_word(listing.normalized_manufacturer, product.normalized_manufacturer)
-    ) and find_word(product.normalized_manufacturer, listing.normalized_title)
+    )
     model_mentioned = any(
         find_word(x, listing.normalized_title)
         for x in (product.normalized_model | product.normalized_name)
@@ -21,12 +20,15 @@ def does_link(product, listing):
 def filter_accessories(data, price_ratio, selector=lambda x: x):
     if not data:
         return [], []
-    data = np.array(data)
-    values = np.vectorize(selector)(data)
-    median = np.median(values)
-    reject = values <= price_ratio * median
-    keep = ~reject
-    return data[keep].tolist(), data[reject].tolist()
+    values = [selector(x) for x in data]
+    median = sorted(values)[len(values) // 2]  # ignoring the case for even number of elements
+    keep, reject = [], []
+    for value, datum in zip(values, data):
+        if value <= price_ratio * median:
+            reject.append(datum)
+        else:
+            keep.append(datum)
+    return keep, reject
 
 
 def main():
@@ -61,6 +63,9 @@ def main():
             product = potential_products[0]
             product.listings.append(listing)
         # Else, save it for review
+        #elif len(potential_products) > 1:
+            #print(potential_products)
+            #input()
         else:
             to_review_listings.append(listing)
 
@@ -80,6 +85,8 @@ def main():
         }
         for product in products
     ), encoding='utf-8')
+    import debugging
+    debugging.save_for_review(products, to_review_listings)
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@ import os
 
 
 def save_for_review(products, to_review_listings):
+    print('unmatched:', len(to_review_listings))
     os.makedirs('output', exist_ok=True)
 
     with open('output/links.csv', 'w') as csvfile:
