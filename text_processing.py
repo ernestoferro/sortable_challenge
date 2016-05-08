@@ -2,8 +2,8 @@ import re
 
 
 def standardize_text(text):
-    text = text.lower().replace('_', ' ')
-    return re.sub(r'[^ a-zA-Z0-9/-]+', '', text)
+    text = re.sub(r'[_\/,]', ' ', text.lower())
+    return re.sub(r'[^\. a-zA-Z0-9/-]+', '', text)
 
 
 def normalize_text(text):
@@ -13,6 +13,7 @@ def normalize_text(text):
     for token in tokens:
         if '-' in token:
             extra_tokens.append(token.replace('-', ''))
+            extra_tokens.append(token.replace('-', ' '))
     return ' '.join(tokens + extra_tokens)
 
 

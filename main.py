@@ -3,18 +3,28 @@ from models import Product, Listing, load_models, save_json_by_line
 from text_processing import find_word
 
 
-def does_link(product, listing):
+def potential_match(product, listing):
     # checks if any of the fields contain the other.
     # Useful for "Konica Minolta" that could be written as "Minolta"
     same_manufacturer = (
         find_word(product.normalized_manufacturer, listing.normalized_manufacturer) or
         find_word(listing.normalized_manufacturer, product.normalized_manufacturer)
     )
+    complete_name_mentioned = find_word(product.standarized_name, listing.normalized_title)
     model_mentioned = any(
         find_word(x, listing.normalized_title)
-        for x in (product.normalized_model | product.normalized_name)
+        for x in (product.tokenized_model | product.tokenized_name)
     )
-    return same_manufacturer and model_mentioned
+    return complete_name_mentioned or (same_manufacturer and model_mentioned)
+
+
+def filter_by_product_name(products, listing):
+    return list(filter(
+        lambda p: all(
+            token in ' '.join([listing.normalized_title, listing.normalized_manufacturer])
+            for token in p.name.lower().split('_')
+        ), products
+    ))
 
 
 def filter_accessories(data, price_ratio, selector=lambda x: x):
@@ -49,23 +59,22 @@ def main():
     for listing in listings:
         # Retrieve candidates
         candidates = set()
-        for token in listing.normalized_manufacturer.split():
+        for token in listing.tokens:
             candidates.update(product_buckets[token])
 
         potential_products = [
             candidate
             for candidate in candidates
-            if does_link(candidate, listing)
+            if potential_match(candidate, listing)
         ]
 
-        # If there's one potential product for current listing, use it
+        # If there's more than one match using manufacturer and model, try to disambiguate
+        # by looking for all product.name tokens in listing.title and listing.manufacturer
+        if len(potential_products) > 1:
+            potential_products = filter_by_product_name(potential_products, listing)
         if len(potential_products) == 1:
             product = potential_products[0]
             product.listings.append(listing)
-        # Else, save it for review
-        #elif len(potential_products) > 1:
-            #print(potential_products)
-            #input()
         else:
             to_review_listings.append(listing)
 
@@ -85,8 +94,6 @@ def main():
         }
         for product in products
     ), encoding='utf-8')
-    import debugging
-    debugging.save_for_review(products, to_review_listings)
 
 
 if __name__ == '__main__':
