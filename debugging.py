@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import sys
 from pprint import pprint
 
 
@@ -50,3 +51,7 @@ def compare_results(path1, path2):
                 print('AFTER')
                 pprint(after)
                 input()
+
+
+if __name__ == '__main__':
+    compare_results(sys.argv[1], sys.argv[2])

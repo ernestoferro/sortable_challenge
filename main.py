@@ -3,7 +3,7 @@ from models import Product, Listing, load_models, save_json_by_line
 from text_processing import find_word
 
 
-def potential_match(product, listing):
+def is_potential_match(product, listing):
     # checks if any of the fields contain the other.
     # Useful for "Konica Minolta" that could be written as "Minolta"
     same_manufacturer = (
@@ -19,6 +19,15 @@ def potential_match(product, listing):
 
 
 def filter_by_product_name(products, listing):
+    '''
+    Returns true if all tokens in the product name are found in the normalized title and
+    manufacturer.
+    This is useful when more than one match is found based only on the manufacturer and
+    model. In this case the family can help remove the false positives. One thing to
+    notice is that the name usually includes the family and sometimes the family field
+    is not included.
+    '''
+
     return list(filter(
         lambda p: all(
             token in ' '.join([listing.normalized_title, listing.normalized_manufacturer])
@@ -65,12 +74,13 @@ def main():
         potential_products = [
             candidate
             for candidate in candidates
-            if potential_match(candidate, listing)
+            if is_potential_match(candidate, listing)
         ]
 
         # If there's more than one match using manufacturer and model, try to disambiguate
         # by looking for all product.name tokens in listing.title and listing.manufacturer
         if len(potential_products) > 1:
+            print(potential_products)
             potential_products = filter_by_product_name(potential_products, listing)
         if len(potential_products) == 1:
             product = potential_products[0]
