@@ -80,7 +80,6 @@ def main():
         # If there's more than one match using manufacturer and model, try to disambiguate
         # by looking for all product.name tokens in listing.title and listing.manufacturer
         if len(potential_products) > 1:
-            print(potential_products)
             potential_products = filter_by_product_name(potential_products, listing)
         if len(potential_products) == 1:
             product = potential_products[0]
